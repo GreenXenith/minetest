@@ -48,8 +48,10 @@ void TestMapNode::testNodeProperties(const NodeDefManager *nodedef)
 	MapNode n(CONTENT_AIR);
 
 	UASSERT(n.getContent() == CONTENT_AIR);
-	UASSERT(n.getLight(LIGHTBANK_DAY, nodedef) == 0);
-	UASSERT(n.getLight(LIGHTBANK_NIGHT, nodedef) == 0);
+	UASSERT(n.getLight(LIGHTTYPE_SKY, nodedef) == 0);
+	UASSERT(n.getLight(LIGHTTYPE_R, nodedef) == 0);
+	UASSERT(n.getLight(LIGHTTYPE_G, nodedef) == 0);
+	UASSERT(n.getLight(LIGHTTYPE_B, nodedef) == 0);
 
 	// Transparency
 	n.setContent(CONTENT_AIR);

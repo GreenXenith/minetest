@@ -441,8 +441,10 @@ struct TestMapBlock: public TestBase
 		{
 			//UASSERT(b.getNode(v3s16(x,y,z)).getContent() == CONTENT_AIR);
 			UASSERT(b.getNode(v3s16(x,y,z)).getContent() == CONTENT_IGNORE);
-			UASSERT(b.getNode(v3s16(x,y,z)).getLight(LIGHTBANK_DAY) == 0);
-			UASSERT(b.getNode(v3s16(x,y,z)).getLight(LIGHTBANK_NIGHT) == 0);
+			UASSERT(b.getNode(v3s16(x,y,z)).getLight(LIGHTTYPE_SKY) == 0);
+			UASSERT(b.getNode(v3s16(x,y,z)).getLight(LIGHTTYPE_R) == 0);
+			UASSERT(b.getNode(v3s16(x,y,z)).getLight(LIGHTTYPE_G) == 0);
+			UASSERT(b.getNode(v3s16(x,y,z)).getLight(LIGHTTYPE_B) == 0);
 		}
 
 		{
@@ -514,8 +516,10 @@ struct TestMapBlock: public TestBase
 			for(u16 y=0; y<MAP_BLOCKSIZE; y++){
 				for(u16 x=0; x<MAP_BLOCKSIZE; x++){
 					MapNode n = b.getNode(v3s16(x,y,z));
-					n.setLight(LIGHTBANK_DAY, 0);
-					n.setLight(LIGHTBANK_NIGHT, 0);
+					n.setLight(LIGHTTYPE_SKY, 0);
+					n.setLight(LIGHTTYPE_R, 0);
+					n.setLight(LIGHTTYPE_G, 0);
+					n.setLight(LIGHTTYPE_B, 0);
 					b.setNode(v3s16(x,y,z), n);
 				}
 			}
@@ -527,17 +531,19 @@ struct TestMapBlock: public TestBase
 			parent.position_valid = true;
 			b.setIsUnderground(false);
 			parent.node.setContent(CONTENT_AIR);
-			parent.node.setLight(LIGHTBANK_DAY, LIGHT_SUN);
-			parent.node.setLight(LIGHTBANK_NIGHT, 0);
+			parent.node.setLight(LIGHTTYPE_SKY, LIGHT_SUN);
+			parent.node.setLight(LIGHTTYPE_R, 0);
+			parent.node.setLight(LIGHTTYPE_G, 0);
+			parent.node.setLight(LIGHTTYPE_B, 0);
 			core::map<v3s16, bool> light_sources;
 			// The bottom block is invalid, because we have a shadowing node
 			UASSERT(b.propagateSunlight(light_sources) == false);
-			UASSERT(b.getNode(v3s16(1,4,0)).getLight(LIGHTBANK_DAY) == LIGHT_SUN);
-			UASSERT(b.getNode(v3s16(1,3,0)).getLight(LIGHTBANK_DAY) == LIGHT_SUN);
-			UASSERT(b.getNode(v3s16(1,2,0)).getLight(LIGHTBANK_DAY) == 0);
-			UASSERT(b.getNode(v3s16(1,1,0)).getLight(LIGHTBANK_DAY) == 0);
-			UASSERT(b.getNode(v3s16(1,0,0)).getLight(LIGHTBANK_DAY) == 0);
-			UASSERT(b.getNode(v3s16(1,2,3)).getLight(LIGHTBANK_DAY) == LIGHT_SUN);
+			UASSERT(b.getNode(v3s16(1,4,0)).getLight(LIGHTTYPE_SKY) == LIGHT_SUN);
+			UASSERT(b.getNode(v3s16(1,3,0)).getLight(LIGHTTYPE_SKY) == LIGHT_SUN);
+			UASSERT(b.getNode(v3s16(1,2,0)).getLight(LIGHTTYPE_SKY) == 0);
+			UASSERT(b.getNode(v3s16(1,1,0)).getLight(LIGHTTYPE_SKY) == 0);
+			UASSERT(b.getNode(v3s16(1,0,0)).getLight(LIGHTTYPE_SKY) == 0);
+			UASSERT(b.getNode(v3s16(1,2,3)).getLight(LIGHTTYPE_SKY) == LIGHT_SUN);
 			UASSERT(b.getFaceLight2(1000, p, v3s16(0,1,0)) == LIGHT_SUN);
 			UASSERT(b.getFaceLight2(1000, p, v3s16(0,-1,0)) == 0);
 			UASSERT(b.getFaceLight2(0, p, v3s16(0,-1,0)) == 0);
@@ -555,7 +561,7 @@ struct TestMapBlock: public TestBase
 			// Make neighbours to exist and set some non-sunlight to them
 			parent.position_valid = true;
 			b.setIsUnderground(true);
-			parent.node.setLight(LIGHTBANK_DAY, LIGHT_MAX/2);
+			parent.node.setLight(LIGHTTYPE_SKY, LIGHT_MAX/2);
 			core::map<v3s16, bool> light_sources;
 			// The block below should be valid because there shouldn't be
 			// sunlight in there either
@@ -563,7 +569,7 @@ struct TestMapBlock: public TestBase
 			// Should not touch nodes that are not affected (that is, all of them)
 			//UASSERT(b.getNode(v3s16(1,2,3)).getLight() == LIGHT_SUN);
 			// Should set light of non-sunlighted blocks to 0.
-			UASSERT(b.getNode(v3s16(1,2,3)).getLight(LIGHTBANK_DAY) == 0);
+			UASSERT(b.getNode(v3s16(1,2,3)).getLight(LIGHTTYPE_SKY) == 0);
 		}
 		/*
 			Set up a situation where:
@@ -582,7 +588,7 @@ struct TestMapBlock: public TestBase
 					for(u16 x=0; x<MAP_BLOCKSIZE; x++){
 						MapNode n;
 						n.setContent(CONTENT_AIR);
-						n.setLight(LIGHTBANK_DAY, 0);
+						n.setLight(LIGHTTYPE_SKY, 0);
 						b.setNode(v3s16(x,y,z), n);
 					}
 				}
@@ -596,7 +602,7 @@ struct TestMapBlock: public TestBase
 				parent.validity_exceptions.push_back(v3s16(MAP_BLOCKSIZE+x, MAP_BLOCKSIZE-1, MAP_BLOCKSIZE+z));
 			}
 			// Lighting value for the valid nodes
-			parent.node.setLight(LIGHTBANK_DAY, LIGHT_MAX/2);
+			parent.node.setLight(LIGHTTYPE_SKY, LIGHT_MAX/2);
 			core::map<v3s16, bool> light_sources;
 			// Bottom block is not valid
 			UASSERT(b.propagateSunlight(light_sources) == false);

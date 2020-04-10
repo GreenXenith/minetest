@@ -241,12 +241,12 @@ bool step_rel_block_pos(direction dir, relative_v3 &rel_pos,
  * light sources. These nodes will have zero light.
  * Returns all nodes whose light became zero but should be re-lighted.
  *
- * \param bank the light bank in which the procedure operates
+ * \param type the light type in which the procedure operates
  * \param from_nodes nodes whose light is removed
  * \param light_sources nodes that should be re-lighted
  * \param modified_blocks output, all modified map blocks are added to this
  */
-void unspread_light(Map *map, const NodeDefManager *nodemgr, LightBank bank,
+void unspread_light(Map *map, const NodeDefManager *nodemgr, LightType type,
 	UnlightQueue &from_nodes, ReLightQueue &light_sources,
 	std::map<v3s16, MapBlock*> &modified_blocks)
 {
@@ -287,7 +287,7 @@ void unspread_light(Map *map, const NodeDefManager *nodemgr, LightBank bank,
 			if (step_rel_block_pos(i, neighbor_rel_pos, neighbor_block_pos)) {
 				neighbor_block = map->getBlockNoCreateNoEx(neighbor_block_pos);
 				if (neighbor_block == NULL) {
-					current.block->setLightingComplete(bank, i, false);
+					current.block->setLightingComplete(type, i, false);
 					continue;
 				}
 			} else {
@@ -298,14 +298,14 @@ void unspread_light(Map *map, const NodeDefManager *nodemgr, LightBank bank,
 				&is_valid_position);
 			const ContentFeatures &neighbor_f = nodemgr->get(
 				neighbor.getContent());
-			u8 neighbor_light = neighbor.getLightRaw(bank, neighbor_f);
+			u8 neighbor_light = neighbor.getLightRaw(type, neighbor_f);
 			// If the neighbor has at least as much light as this node, then
 			// it won't lose its light, since it should have been added to
 			// from_nodes earlier, so its light would be zero.
 			if (neighbor_f.light_propagates && neighbor_light < current_light) {
 				// Unlight, but only if the node has light.
 				if (neighbor_light > 0) {
-					neighbor.setLight(bank, 0, neighbor_f);
+					neighbor.setLight(type, 0, neighbor_f);
 					neighbor_block->setNodeNoCheck(neighbor_rel_pos, neighbor);
 					from_nodes.push(neighbor_light, neighbor_rel_pos,
 						neighbor_block_pos, neighbor_block, i);
@@ -346,11 +346,11 @@ void unspread_light(Map *map, const NodeDefManager *nodemgr, LightBank bank,
  * light_sources (if the queue contains a node multiple times, the brightest
  * occurrence counts).
  *
- * \param bank the light bank in which the procedure operates
+ * \param type the light type in which the procedure operates
  * \param light_sources starting nodes
  * \param modified_blocks output, all modified map blocks are added to this
  */
-void spread_light(Map *map, const NodeDefManager *nodemgr, LightBank bank,
+void spread_light(Map *map, const NodeDefManager *nodemgr, LightType type,
 	LightQueue &light_sources,
 	std::map<v3s16, MapBlock*> &modified_blocks)
 {
@@ -377,7 +377,7 @@ void spread_light(Map *map, const NodeDefManager *nodemgr, LightBank bank,
 			if (step_rel_block_pos(i, neighbor_rel_pos, neighbor_block_pos)) {
 				neighbor_block = map->getBlockNoCreateNoEx(neighbor_block_pos);
 				if (neighbor_block == NULL) {
-					current.block->setLightingComplete(bank, i, false);
+					current.block->setLightingComplete(type, i, false);
 					continue;
 				}
 			} else {
@@ -389,9 +389,9 @@ void spread_light(Map *map, const NodeDefManager *nodemgr, LightBank bank,
 			const ContentFeatures &f = nodemgr->get(neighbor.getContent());
 			if (f.light_propagates) {
 				// Light up the neighbor, if it has less light than it should.
-				u8 neighbor_light = neighbor.getLightRaw(bank, f);
+				u8 neighbor_light = neighbor.getLightRaw(type, f);
 				if (neighbor_light < spreading_light) {
-					neighbor.setLight(bank, spreading_light, f);
+					neighbor.setLight(type, spreading_light, f);
 					neighbor_block->setNodeNoCheck(neighbor_rel_pos, neighbor);
 					light_sources.push(spreading_light, neighbor_rel_pos,
 						neighbor_block_pos, neighbor_block, i);
@@ -454,7 +454,7 @@ bool is_sunlight_above(Map *map, v3s16 pos, const NodeDefManager *ndef)
 				if (source_block->getIsUnderground()) {
 					sunlight = false;
 				}
-			} else if (above.getLight(LIGHTBANK_DAY, ndef) != LIGHT_SUN) {
+			} else if (above.getLight(LIGHTTYPE_SKY, ndef) != LIGHT_SUN) {
 				// If the node above doesn't have sunlight, this
 				// node is in shadow.
 				sunlight = false;
@@ -464,7 +464,7 @@ bool is_sunlight_above(Map *map, v3s16 pos, const NodeDefManager *ndef)
 	return sunlight;
 }
 
-static const LightBank banks[] = { LIGHTBANK_DAY, LIGHTBANK_NIGHT };
+static const LightType types[] = { LIGHTTYPE_SKY, LIGHTTYPE_ARTIFICIAL };
 
 void update_lighting_nodes(Map *map,
 	std::vector<std::pair<v3s16, MapNode> > &oldnodes,
@@ -474,8 +474,8 @@ void update_lighting_nodes(Map *map,
 	// For node getter functions
 	bool is_valid_position;
 
-	// Process each light bank separately
-	for (LightBank bank : banks) {
+	// Process each light type separately
+	for (LightType type : types) {
 		UnlightQueue disappearing_lights(256);
 		ReLightQueue light_sources(256);
 		// Nodes that are brighter than the brightest modified node was
@@ -484,7 +484,7 @@ void update_lighting_nodes(Map *map,
 		u8 min_safe_light = 0;
 		for (std::vector<std::pair<v3s16, MapNode> >::iterator it =
 				oldnodes.begin(); it < oldnodes.end(); ++it) {
-			u8 old_light = it->second.getLight(bank, ndef);
+			u8 old_light = it->second.getLight(type, ndef);
 			if (old_light > min_safe_light) {
 				min_safe_light = old_light;
 			}
@@ -513,7 +513,7 @@ void update_lighting_nodes(Map *map,
 			}
 
 			// Light of the old node
-			u8 old_light = it->second.getLight(bank, ndef);
+			u8 old_light = it->second.getLight(type, ndef);
 
 			// Add the block of the added node to modified_blocks
 			modified_blocks[block_pos] = block;
@@ -521,7 +521,7 @@ void update_lighting_nodes(Map *map,
 			// Get new light level of the node
 			u8 new_light = 0;
 			if (ndef->get(n).light_propagates) {
-				if (bank == LIGHTBANK_DAY && ndef->get(n).sunlight_propagates
+				if (type == LIGHTTYPE_SKY && ndef->get(n).sunlight_propagates
 					&& is_sunlight_above(map, p, ndef)) {
 					new_light = LIGHT_SUN;
 				} else {
@@ -531,7 +531,7 @@ void update_lighting_nodes(Map *map,
 						bool is_valid;
 						MapNode n2 = map->getNode(p2, &is_valid);
 						if (is_valid) {
-							u8 spread = n2.getLight(bank, ndef);
+							u8 spread = n2.getLight(type, ndef);
 							// If it is sure that the neighbor won't be
 							// unlighted, its light can spread to this node.
 							if (spread > new_light && spread >= min_safe_light) {
@@ -554,13 +554,13 @@ void update_lighting_nodes(Map *map,
 				// light as the previous one, so it must be unlighted.
 
 				// Add to unlight queue
-				n.setLight(bank, 0, ndef);
+				n.setLight(type, 0, ndef);
 				block->setNodeNoCheck(rel_pos, n);
 				disappearing_lights.push(old_light, rel_pos, block_pos, block,
 					6);
 
 				// Remove sunlight, if there was any
-				if (bank == LIGHTBANK_DAY && old_light == LIGHT_SUN) {
+				if (type == LIGHTTYPE_SKY && old_light == LIGHT_SUN) {
 					for (s16 y = p.Y - 1;; y--) {
 						v3s16 n2pos(p.X, y, p.Z);
 
@@ -572,11 +572,11 @@ void update_lighting_nodes(Map *map,
 
 						// If this node doesn't have sunlight, the nodes below
 						// it don't have too.
-						if (n2.getLight(LIGHTBANK_DAY, ndef) != LIGHT_SUN) {
+						if (n2.getLight(LIGHTTYPE_SKY, ndef) != LIGHT_SUN) {
 							break;
 						}
 						// Remove sunlight and add to unlight queue.
-						n2.setLight(LIGHTBANK_DAY, 0, ndef);
+						n2.setLight(LIGHTTYPE_SKY, 0, ndef);
 						map->setNode(n2pos, n2);
 						relative_v3 rel_pos2;
 						mapblock_v3 block_pos2;
@@ -592,7 +592,7 @@ void update_lighting_nodes(Map *map,
 				// It is sure that the node provides more light than the previous
 				// one, unlighting is not necessary.
 				// Propagate sunlight
-				if (bank == LIGHTBANK_DAY && new_light == LIGHT_SUN) {
+				if (type == LIGHTTYPE_SKY && new_light == LIGHT_SUN) {
 					for (s16 y = p.Y - 1;; y--) {
 						v3s16 n2pos(p.X, y, p.Z);
 
@@ -604,7 +604,7 @@ void update_lighting_nodes(Map *map,
 
 						// This should not happen, but if the node has sunlight
 						// then the iteration should stop.
-						if (n2.getLight(LIGHTBANK_DAY, ndef) == LIGHT_SUN) {
+						if (n2.getLight(LIGHTTYPE_SKY, ndef) == LIGHT_SUN) {
 							break;
 						}
 						// If the node terminates sunlight, stop.
@@ -625,7 +625,7 @@ void update_lighting_nodes(Map *map,
 
 		}
 		// Remove lights
-		unspread_light(map, ndef, bank, disappearing_lights, light_sources,
+		unspread_light(map, ndef, type, disappearing_lights, light_sources,
 			modified_blocks);
 		// Initialize light values for light spreading.
 		for (u8 i = 0; i <= LIGHT_SUN; i++) {
@@ -634,12 +634,12 @@ void update_lighting_nodes(Map *map,
 					it < lights.end(); ++it) {
 				MapNode n = it->block->getNodeNoCheck(it->rel_position,
 					&is_valid_position);
-				n.setLight(bank, i, ndef);
+				n.setLight(type, i, ndef);
 				it->block->setNodeNoCheck(it->rel_position, n);
 			}
 		}
 		// Spread lights.
-		spread_light(map, ndef, bank, light_sources, modified_blocks);
+		spread_light(map, ndef, type, light_sources, modified_blocks);
 	}
 }
 
@@ -665,7 +665,7 @@ const VoxelArea block_borders[] = {
  * .
  */
 bool is_light_locally_correct(Map *map, const NodeDefManager *ndef,
-	LightBank bank, v3s16 pos)
+	LightType type, v3s16 pos)
 {
 	bool is_valid_position;
 	MapNode n = map->getNode(pos, &is_valid_position);
@@ -673,13 +673,13 @@ bool is_light_locally_correct(Map *map, const NodeDefManager *ndef,
 	if (f.param_type != CPT_LIGHT) {
 		return true;
 	}
-	u8 light = n.getLightNoChecks(bank, &f);
+	u8 light = n.getLightNoChecks(type, &f);
 	assert(f.light_source <= LIGHT_MAX);
 	u8 brightest_neighbor = f.light_source + 1;
 	for (const v3s16 &neighbor_dir : neighbor_dirs) {
 		MapNode n2 = map->getNode(pos + neighbor_dir,
 			&is_valid_position);
-		u8 light2 = n2.getLight(bank, ndef);
+		u8 light2 = n2.getLight(type, ndef);
 		if (brightest_neighbor < light2) {
 			brightest_neighbor = light2;
 		}
@@ -693,7 +693,7 @@ void update_block_border_lighting(Map *map, MapBlock *block,
 {
 	const NodeDefManager *ndef = map->getNodeDefManager();
 	bool is_valid_position;
-	for (LightBank bank : banks) {
+	for (LightType type : types) {
 		// Since invalid light is not common, do not allocate
 		// memory if not needed.
 		UnlightQueue disappearing_lights(0);
@@ -708,12 +708,12 @@ void update_block_border_lighting(Map *map, MapBlock *block,
 				continue;
 			}
 			// Only update if lighting was not completed.
-			if (block->isLightingComplete(bank, d) &&
-					other->isLightingComplete(bank, 5 - d))
+			if (block->isLightingComplete(type, d) &&
+					other->isLightingComplete(type, 5 - d))
 				continue;
 			// Reset flags
-			block->setLightingComplete(bank, d, true);
-			other->setLightingComplete(bank, 5 - d, true);
+			block->setLightingComplete(type, d, true);
+			other->setLightingComplete(type, 5 - d, true);
 			// The two blocks and their connecting surfaces
 			MapBlock *blocks[] = {block, other};
 			VoxelArea areas[] = {block_borders[d], block_borders[5 - d]};
@@ -727,14 +727,14 @@ void update_block_border_lighting(Map *map, MapBlock *block,
 				for (s32 y = a.MinEdge.Y; y <= a.MaxEdge.Y; y++) {
 					MapNode n = b->getNodeNoCheck(x, y, z,
 						&is_valid_position);
-					u8 light = n.getLight(bank, ndef);
+					u8 light = n.getLight(type, ndef);
 					// Sunlight is fixed
 					if (light < LIGHT_SUN) {
 						// Unlight if not correct
-						if (!is_light_locally_correct(map, ndef, bank,
+						if (!is_light_locally_correct(map, ndef, type,
 								v3s16(x, y, z) + b->getPosRelative())) {
 							// Initialize for unlighting
-							n.setLight(bank, 0, ndef);
+							n.setLight(type, 0, ndef);
 							b->setNodeNoCheck(x, y, z, n);
 							modified_blocks[b->getPos()]=b;
 							disappearing_lights.push(light,
@@ -746,7 +746,7 @@ void update_block_border_lighting(Map *map, MapBlock *block,
 			}
 		}
 		// Remove lights
-		unspread_light(map, ndef, bank, disappearing_lights, light_sources,
+		unspread_light(map, ndef, type, disappearing_lights, light_sources,
 			modified_blocks);
 		// Initialize light values for light spreading.
 		for (u8 i = 0; i <= LIGHT_SUN; i++) {
@@ -755,12 +755,12 @@ void update_block_border_lighting(Map *map, MapBlock *block,
 					it < lights.end(); ++it) {
 				MapNode n = it->block->getNodeNoCheck(it->rel_position,
 					&is_valid_position);
-				n.setLight(bank, i, ndef);
+				n.setLight(type, i, ndef);
 				it->block->setNodeNoCheck(it->rel_position, n);
 			}
 		}
 		// Spread lights.
-		spread_light(map, ndef, bank, light_sources, modified_blocks);
+		spread_light(map, ndef, type, light_sources, modified_blocks);
 	}
 }
 
@@ -811,8 +811,8 @@ void fill_with_sunlight(MMVManip *vm, const NodeDefManager *ndef, v2s16 offset,
 				// Sunlight is stopped.
 				lig = false;
 			// Reset light
-			n->setLight(LIGHTBANK_DAY, lig ? 15 : 0, f);
-			n->setLight(LIGHTBANK_NIGHT, 0, f);
+			n->setLight(LIGHTTYPE_SKY, lig ? 15 : 0, f);
+			n->setLight(LIGHTTYPE_ARTIFICIAL, 0, f);
 		}
 		// Output outgoing light.
 		light[z][x] = lig;
@@ -859,7 +859,7 @@ void is_sunlight_above_block(ServerMap *map, mapblock_v3 pos,
 			// Get the bottom block.
 			MapNode above = source_block->getNodeNoCheck(x, 0, z,
 				&is_valid_position);
-			light[z][x] = above.getLight(LIGHTBANK_DAY, ndef) == LIGHT_SUN;
+			light[z][x] = above.getLight(LIGHTTYPE_SKY, ndef) == LIGHT_SUN;
 		}
 	}
 }
@@ -900,10 +900,10 @@ bool propagate_block_sunlight(Map *map, const NodeDefManager *ndef,
 			for (; current_pos.Y >= 0; current_pos.Y--) {
 				MapNode n = block->getNodeNoCheck(current_pos, &is_valid);
 				const ContentFeatures &f = ndef->get(n);
-				if (n.getLightRaw(LIGHTBANK_DAY, f) < LIGHT_SUN
+				if (n.getLightRaw(LIGHTTYPE_SKY, f) < LIGHT_SUN
 						&& f.sunlight_propagates) {
 					// This node gets sunlight.
-					n.setLight(LIGHTBANK_DAY, LIGHT_SUN, f);
+					n.setLight(LIGHTTYPE_SKY, LIGHT_SUN, f);
 					block->setNodeNoCheck(current_pos, n);
 					modified = true;
 					relight->push(LIGHT_SUN, current_pos, data->target_block,
@@ -919,9 +919,9 @@ bool propagate_block_sunlight(Map *map, const NodeDefManager *ndef,
 			for (; current_pos.Y >= 0; current_pos.Y--) {
 				MapNode n = block->getNodeNoCheck(current_pos, &is_valid);
 				const ContentFeatures &f = ndef->get(n);
-				if (n.getLightRaw(LIGHTBANK_DAY, f) == LIGHT_SUN) {
+				if (n.getLightRaw(LIGHTTYPE_SKY, f) == LIGHT_SUN) {
 					// The sunlight is no longer valid.
-					n.setLight(LIGHTBANK_DAY, 0, f);
+					n.setLight(LIGHTTYPE_SKY, 0, f);
 					block->setNodeNoCheck(current_pos, n);
 					modified = true;
 					unlight->push(LIGHT_SUN, current_pos, data->target_block,
@@ -986,9 +986,9 @@ void finish_bulk_light_update(Map *map, mapblock_v3 minblock,
 
 	// --- STEP 1: Do unlighting
 
-	for (size_t bank = 0; bank < 2; bank++) {
-		LightBank b = banks[bank];
-		unspread_light(map, ndef, b, unlight[bank], relight[bank],
+	for (size_t type = 0; type < 2; type++) {
+		LightType b = types[type];
+		unspread_light(map, ndef, b, unlight[type], relight[type],
 			*modified_blocks);
 	}
 
@@ -1011,23 +1011,23 @@ void finish_bulk_light_update(Map *map, mapblock_v3 minblock,
 			MapNode node = block->getNodeNoCheck(relpos.X, relpos.Y, relpos.Z, &is_valid);
 			const ContentFeatures &f = ndef->get(node);
 
-			// For each light bank
+			// For each light type
 			for (size_t b = 0; b < 2; b++) {
-				LightBank bank = banks[b];
+				LightType type = types[b];
 				u8 light = f.param_type == CPT_LIGHT ?
-					node.getLightNoChecks(bank, &f):
+					node.getLightNoChecks(type, &f):
 					f.light_source;
 				if (light > 1)
 					relight[b].push(light, relpos, blockpos, block, 6);
-			} // end of banks
+			} // end of types
 		} // end of nodes
 	} // end of blocks
 
 	// --- STEP 3: do light spreading
 
-	// For each light bank:
+	// For each light type:
 	for (size_t b = 0; b < 2; b++) {
-		LightBank bank = banks[b];
+		LightType type = types[b];
 		// Sunlight is already initialized.
 		u8 maxlight = (b == 0) ? LIGHT_MAX : LIGHT_SUN;
 		// Initialize light values for light spreading.
@@ -1037,12 +1037,12 @@ void finish_bulk_light_update(Map *map, mapblock_v3 minblock,
 					it < lights.end(); ++it) {
 				MapNode n = it->block->getNodeNoCheck(it->rel_position,
 					&is_valid);
-				n.setLight(bank, i, ndef);
+				n.setLight(type, i, ndef);
 				it->block->setNodeNoCheck(it->rel_position, n);
 			}
 		}
 		// Spread lights.
-		spread_light(map, ndef, bank, relight[b], *modified_blocks);
+		spread_light(map, ndef, type, relight[b], *modified_blocks);
 	}
 }
 
@@ -1117,21 +1117,21 @@ void blit_back_with_light(ServerMap *map, MMVManip *vm,
 				const ContentFeatures &newf = oldnode == newnode ? oldf :
 					ndef->get(newnode);
 
-				// For each light bank
+				// For each light type
 				for (size_t b = 0; b < 2; b++) {
-					LightBank bank = banks[b];
+					LightType type = types[b];
 					u8 oldlight = oldf.param_type == CPT_LIGHT ?
-						oldnode.getLightNoChecks(bank, &oldf):
+						oldnode.getLightNoChecks(type, &oldf):
 						LIGHT_SUN; // no light information, force unlighting
 					u8 newlight = newf.param_type == CPT_LIGHT ?
-						newnode.getLightNoChecks(bank, &newf):
+						newnode.getLightNoChecks(type, &newf):
 						newf.light_source;
 					// If the new node is dimmer, unlight.
 					if (oldlight > newlight) {
 						unlight[b].push(
 							oldlight, relpos, blockpos, block, 6);
 					}
-				} // end of banks
+				} // end of types
 			} // end of nodes
 		} // end of borders
 	} // end of blocks
@@ -1180,8 +1180,8 @@ void fill_with_sunlight(MapBlock *block, const NodeDefManager *ndef,
 				lig = false;
 			}
 			// Reset light
-			n.setLight(LIGHTBANK_DAY, lig ? 15 : 0, f);
-			n.setLight(LIGHTBANK_NIGHT, 0, f);
+			n.setLight(LIGHTTYPE_SKY, lig ? 15 : 0, f);
+			n.setLight(LIGHTTYPE_ARTIFICIAL, 0, f);
 			block->setNodeNoCheck(x, y, z, n);
 		}
 		// Output outgoing light.
@@ -1242,11 +1242,11 @@ void repair_block_light(ServerMap *map, MapBlock *block,
 			// Get node
 			MapNode node = block->getNodeNoCheck(relpos, &is_valid);
 			const ContentFeatures &f = ndef->get(node);
-			// For each light bank
+			// For each light type
 			for (size_t b = 0; b < 2; b++) {
-				LightBank bank = banks[b];
+				LightType type = types[b];
 				u8 light = f.param_type == CPT_LIGHT ?
-					node.getLightNoChecks(bank, &f):
+					node.getLightNoChecks(type, &f):
 					f.light_source;
 				// If the new node is dimmer than sunlight, unlight.
 				// (if it has maximal light, it is pointless to remove
@@ -1255,7 +1255,7 @@ void repair_block_light(ServerMap *map, MapBlock *block,
 					unlight[b].push(
 						LIGHT_SUN, relpos, blockpos, block, 6);
 				}
-			} // end of banks
+			} // end of types
 		} // end of nodes
 	} // end of borders
 

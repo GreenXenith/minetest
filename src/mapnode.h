@@ -70,10 +70,13 @@ typedef u16 content_t;
 */
 #define CONTENT_IGNORE 127
 
-enum LightBank
+enum LightType
 {
-	LIGHTBANK_DAY,
-	LIGHTBANK_NIGHT
+	LIGHTTYPE_SKY,
+	LIGHTTYPE_R,
+	LIGHTTYPE_G,
+	LIGHTTYPE_B,
+	LIGHTTYPE_ARTIFICIAL
 };
 
 /*
@@ -126,10 +129,11 @@ struct MapNode
 		- For light_propagates() blocks, this is light intensity,
 		  stored logarithmically from 0 to LIGHT_MAX.
 		  Sunlight is LIGHT_SUN, which is LIGHT_MAX+1.
-		  - Contains 2 values, day- and night lighting. Each takes 4 bits.
+		  - Contains 2 values, natural and artificial lighting. Natural light
+		    takes 4 bits, and artificial light takes 24 (for colored lighting).
 		- Uhh... well, most blocks have light or nothing in here.
 	*/
-	u8 param1;
+	u16 param1;
 
 	/*
 		The second parameter. Initialized to 0.
@@ -139,7 +143,7 @@ struct MapNode
 
 	MapNode() = default;
 
-	MapNode(content_t content, u8 a_param1=0, u8 a_param2=0) noexcept
+	MapNode(content_t content, u16 a_param1=0, u8 a_param2=0) noexcept
 		: param0(content),
 		  param1(a_param1),
 		  param2(a_param2)
@@ -161,11 +165,11 @@ struct MapNode
 	{
 		param0 = c;
 	}
-	u8 getParam1() const noexcept
+	u16 getParam1() const noexcept
 	{
 		return param1;
 	}
-	void setParam1(u8 p) noexcept
+	void setParam1(u16 p) noexcept
 	{
 		param1 = p;
 	}
@@ -186,28 +190,33 @@ struct MapNode
 	 */
 	void getColor(const ContentFeatures &f, video::SColor *color) const;
 
-	void setLight(LightBank bank, u8 a_light, const ContentFeatures &f) noexcept;
+	// 0 <= value <= 15
+	void setLight(LightType type, u16 value, const ContentFeatures &f) noexcept;
+	void setLight(LightType type, u16 value, const NodeDefManager *nodemgr);
 
-	void setLight(LightBank bank, u8 a_light, const NodeDefManager *nodemgr);
+	/**
+	 * Converts internal RGB light values to a u8 brightness value.
+	 */
+	u8 getArtificialLightBrightness() const;
 
 	/**
 	 * Check if the light value for night differs from the light value for day.
 	 *
 	 * @return If the light values are equal, returns true; otherwise false
 	 */
-	bool isLightDayNightEq(const NodeDefManager *nodemgr) const;
+	bool areLightTypesEq(const NodeDefManager *nodemgr) const;
 
-	u8 getLight(LightBank bank, const NodeDefManager *nodemgr) const;
+	u16 getLight(LightType type, const NodeDefManager *nodemgr) const;
 
 	/*!
 	 * Returns the node's light level from param1.
 	 * If the node emits light, it is ignored.
 	 * \param f the ContentFeatures of this node.
 	 */
-	u8 getLightRaw(LightBank bank, const ContentFeatures &f) const noexcept;
+	u16 getLightRaw(LightType type, const ContentFeatures &f) const noexcept;
 
 	/**
-	 * This function differs from getLight(LightBank bank, NodeDefManager *nodemgr)
+	 * This function differs from getLight(LightType type, NodeDefManager *nodemgr)
 	 * in that the ContentFeatures of the node in question are not retrieved by
 	 * the function itself.  Thus, if you have already called nodemgr->get() to
 	 * get the ContentFeatures you pass it to this function instead of the
@@ -221,20 +230,11 @@ struct MapNode
 	 * @pre f != NULL
 	 * @pre f->param_type == CPT_LIGHT
 	 */
-	u8 getLightNoChecks(LightBank bank, const ContentFeatures *f) const noexcept;
+	u16 getLightNoChecks(LightType type, const ContentFeatures *f) const noexcept;
 
-	bool getLightBanks(u8 &lightday, u8 &lightnight,
-		const NodeDefManager *nodemgr) const;
-
-	// 0 <= daylight_factor <= 1000
+	// 0 <= skylight_factor <= 1000
 	// 0 <= return value <= LIGHT_SUN
-	u8 getLightBlend(u32 daylight_factor, const NodeDefManager *nodemgr) const
-	{
-		u8 lightday = 0;
-		u8 lightnight = 0;
-		getLightBanks(lightday, lightnight, nodemgr);
-		return blend_light(daylight_factor, lightday, lightnight);
-	}
+	u8 getLightBlend(u32 skylight_factor, const NodeDefManager *nodemgr) const;
 
 	u8 getFaceDir(const NodeDefManager *nodemgr, bool allow_wallmounted = false) const;
 	u8 getWallMounted(const NodeDefManager *nodemgr) const;

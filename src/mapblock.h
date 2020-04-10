@@ -176,11 +176,11 @@ public:
 		return m_lighting_complete;
 	}
 
-	inline void setLightingComplete(LightBank bank, u8 direction,
+	inline void setLightingComplete(LightType type, u8 direction,
 		bool is_complete)
 	{
 		assert(direction >= 0 && direction <= 5);
-		if (bank == LIGHTBANK_NIGHT) {
+		if (type != LIGHTTYPE_SKY) {
 			direction += 6;
 		}
 		u16 newflags = m_lighting_complete;
@@ -192,10 +192,10 @@ public:
 		setLightingComplete(newflags);
 	}
 
-	inline bool isLightingComplete(LightBank bank, u8 direction)
+	inline bool isLightingComplete(LightType type, u8 direction)
 	{
 		assert(direction >= 0 && direction <= 5);
-		if (bank == LIGHTBANK_NIGHT) {
+		if (type != LIGHTTYPE_SKY) {
 			direction += 6;
 		}
 		return (m_lighting_complete & (1 << direction)) != 0;

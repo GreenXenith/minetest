@@ -53,39 +53,54 @@ void MapNode::getColor(const ContentFeatures &f, video::SColor *color) const
 	*color = f.color;
 }
 
-void MapNode::setLight(LightBank bank, u8 a_light, const ContentFeatures &f) noexcept
+void MapNode::setLight(LightType type, u16 value, const ContentFeatures &f) noexcept
 {
 	// If node doesn't contain light data, ignore this
-	if(f.param_type != CPT_LIGHT)
+	if (f.param_type != CPT_LIGHT)
 		return;
-	if(bank == LIGHTBANK_DAY)
-	{
-		param1 &= 0xf0;
-		param1 |= a_light & 0x0f;
-	}
-	else if(bank == LIGHTBANK_NIGHT)
-	{
-		param1 &= 0x0f;
-		param1 |= (a_light & 0x0f)<<4;
-	}
-	else
-		assert("Invalid light bank" == NULL);
+	if (type == LIGHTTYPE_SKY) {
+		param1 &= 0xfff0;
+		param1 |= value;
+	} else if (type == LIGHTTYPE_R) {
+		param1 &= 0xff0f;
+		param1 |= value << 4;
+	} else if (type == LIGHTTYPE_G) {
+		param1 &= 0xf0ff;
+		param1 |= value << 8;
+	} else if (type == LIGHTTYPE_B) {
+		param1 &= 0x0fff;
+		param1 |= value << 12;
+	} else if (type == LIGHTTYPE_ARTIFICIAL) {
+		setLight(LIGHTTYPE_R, value, f);
+		setLight(LIGHTTYPE_G, value, f);
+		setLight(LIGHTTYPE_B, value, f);
+	} else
+		assert("Invalid light type" == NULL);
 }
 
-void MapNode::setLight(LightBank bank, u8 a_light, const NodeDefManager *nodemgr)
+u8 MapNode::getArtificialLightBrightness() const
 {
-	setLight(bank, a_light, nodemgr->get(*this));
+	const u8 R = (param1 >> 4) & 0x000f;
+	const u8 G = (param1 >> 8) & 0x000f;
+	const u8 B = (param1 >> 12) & 0x000f;
+
+	return std::max(std::max(R, G), B);
 }
 
-bool MapNode::isLightDayNightEq(const NodeDefManager *nodemgr) const
+void MapNode::setLight(LightType type, u16 value, const NodeDefManager *nodemgr)
+{
+	setLight(type, value, nodemgr->get(*this));
+}
+
+bool MapNode::areLightTypesEq(const NodeDefManager *nodemgr) const
 {
 	const ContentFeatures &f = nodemgr->get(*this);
 	bool isEqual;
 
 	if (f.param_type == CPT_LIGHT) {
-		u8 day   = MYMAX(f.light_source, param1 & 0x0f);
-		u8 night = MYMAX(f.light_source, (param1 >> 4) & 0x0f);
-		isEqual = day == night;
+		u8 sky = MYMAX(f.light_source, param1 & 0xf);
+		u8 rgb = MYMAX(f.light_source, getArtificialLightBrightness());
+		isEqual = sky == rgb;
 	} else {
 		isEqual = true;
 	}
@@ -93,53 +108,52 @@ bool MapNode::isLightDayNightEq(const NodeDefManager *nodemgr) const
 	return isEqual;
 }
 
-u8 MapNode::getLight(LightBank bank, const NodeDefManager *nodemgr) const
+u16 MapNode::getLightRaw(LightType type, const ContentFeatures &f) const noexcept
 {
-	// Select the brightest of [light source, propagated light]
-	const ContentFeatures &f = nodemgr->get(*this);
-
-	u8 light;
-	if(f.param_type == CPT_LIGHT)
-		light = bank == LIGHTBANK_DAY ? param1 & 0x0f : (param1 >> 4) & 0x0f;
-	else
-		light = 0;
-
-	return MYMAX(f.light_source, light);
-}
-
-u8 MapNode::getLightRaw(LightBank bank, const ContentFeatures &f) const noexcept
-{
-	if(f.param_type == CPT_LIGHT)
-		return bank == LIGHTBANK_DAY ? param1 & 0x0f : (param1 >> 4) & 0x0f;
+	if (f.param_type == CPT_LIGHT) {
+		if (type == LIGHTTYPE_SKY) {
+			return param1 & 0x000f;
+		} else if (type == LIGHTTYPE_R) {
+			return (param1 >> 4) & 0x000f;
+		} else if (type == LIGHTTYPE_G) {
+			return (param1 >> 8) & 0x000f;
+		} else if (type == LIGHTTYPE_B) {
+			return (param1 >> 12) & 0x000f;
+		} else if (type == LIGHTTYPE_ARTIFICIAL) {
+			return getArtificialLightBrightness();
+		}
+	}
 	return 0;
 }
 
-u8 MapNode::getLightNoChecks(LightBank bank, const ContentFeatures *f) const noexcept
+u16 MapNode::getLight(LightType type, const NodeDefManager *nodemgr) const
 {
-	return MYMAX(f->light_source,
-	             bank == LIGHTBANK_DAY ? param1 & 0x0f : (param1 >> 4) & 0x0f);
+	const ContentFeatures &f = nodemgr->get(*this);
+	return MYMAX(f.light_source, getLightRaw(type, f));
 }
 
-bool MapNode::getLightBanks(u8 &lightday, u8 &lightnight,
-	const NodeDefManager *nodemgr) const
+u16 MapNode::getLightNoChecks(LightType type, const ContentFeatures *f) const noexcept
 {
-	// Select the brightest of [light source, propagated light]
+	return MYMAX(f->light_source, getLightRaw(type, *f));
+}
+
+u8 MapNode::getLightBlend(u32 skylight_factor, const NodeDefManager *nodemgr) const
+{
+	u8 skylight = 0;
+	u8 artificial = 0;
+
 	const ContentFeatures &f = nodemgr->get(*this);
-	if(f.param_type == CPT_LIGHT)
-	{
-		lightday = param1 & 0x0f;
-		lightnight = (param1>>4)&0x0f;
+	if (f.param_type == CPT_LIGHT) {
+		skylight = param1 & 0x0f;
+		artificial = getArtificialLightBrightness();
 	}
-	else
-	{
-		lightday = 0;
-		lightnight = 0;
-	}
-	if(f.light_source > lightday)
-		lightday = f.light_source;
-	if(f.light_source > lightnight)
-		lightnight = f.light_source;
-	return f.param_type == CPT_LIGHT || f.light_source != 0;
+
+	if (f.light_source > skylight)
+		skylight = f.light_source;
+	if (f.light_source > artificial)
+		artificial = f.light_source;
+
+	return blend_light(skylight_factor, skylight, artificial);
 }
 
 u8 MapNode::getFaceDir(const NodeDefManager *nodemgr,

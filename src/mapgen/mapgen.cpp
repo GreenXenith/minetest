@@ -456,7 +456,7 @@ void Mapgen::lightSpread(VoxelArea &a, std::queue<std::pair<v3s16, u8>> &queue,
 	u32 vi = vm->m_area.index(p);
 	MapNode &n = vm->m_data[vi];
 
-	// Decay light in each of the banks separately
+	// Decay light in each of the types separately
 	u8 light_day = light & 0x0F;
 	if (light_day > 0)
 		light_day -= 0x01;
@@ -465,7 +465,7 @@ void Mapgen::lightSpread(VoxelArea &a, std::queue<std::pair<v3s16, u8>> &queue,
 	if (light_night > 0)
 		light_night -= 0x10;
 
-	// Bail out only if we have no more light from either bank to propogate, or
+	// Bail out only if we have no more light from either type to propogate, or
 	// we hit a solid block that light cannot pass through.
 	if ((light_day  <= (n.param1 & 0x0F) &&
 			light_night <= (n.param1 & 0xF0)) ||
@@ -473,8 +473,8 @@ void Mapgen::lightSpread(VoxelArea &a, std::queue<std::pair<v3s16, u8>> &queue,
 		return;
 
 	// Since this recursive function only terminates when there is no light from
-	// either bank left, we need to take the max of both banks into account for
-	// the case where spreading has stopped for one light bank but not the other.
+	// either type left, we need to take the max of both types into account for
+	// the case where spreading has stopped for one light type but not the other.
 	light = MYMAX(light_day, n.param1 & 0x0F) |
 			MYMAX(light_night, n.param1 & 0xF0);
 
@@ -506,7 +506,7 @@ void Mapgen::propagateSunlight(v3s16 nmin, v3s16 nmax, bool propagate_shadow)
 	const v3s16 &em = vm->m_area.getExtent();
 
 	// NOTE: Direct access to the low 4 bits of param1 is okay here because,
-	// by definition, sunlight will never be in the night lightbank.
+	// by definition, sunlight will never be in the RGB LightTypes.
 
 	for (int z = a.MinEdge.Z; z <= a.MaxEdge.Z; z++) {
 		for (int x = a.MinEdge.X; x <= a.MaxEdge.X; x++) {

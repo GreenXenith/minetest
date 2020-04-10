@@ -69,13 +69,13 @@ void set_light_table(float gamma);
 
 #endif // ifndef SERVER
 
-// 0 <= daylight_factor <= 1000
+// 0 <= skylight_factor <= 1000
 // 0 <= lightday, lightnight <= LIGHT_SUN
 // 0 <= return value <= LIGHT_SUN
-inline u8 blend_light(u32 daylight_factor, u8 lightday, u8 lightnight)
+inline u8 blend_light(u32 skylight_factor, u8 skylight, u8 artificial)
 {
 	u32 c = 1000;
-	u32 l = ((daylight_factor * lightday + (c - daylight_factor) * lightnight)) / c;
+	u32 l = ((skylight_factor * skylight + (c - skylight_factor) * artificial)) / c;
 	if (l > LIGHT_SUN)
 		l = LIGHT_SUN;
 	return l;

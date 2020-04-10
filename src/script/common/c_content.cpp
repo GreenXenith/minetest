@@ -700,6 +700,34 @@ ContentFeatures read_content_features(lua_State *L, int index)
 			<< ", it was reduced." << std::endl;
 		f.light_source = LIGHT_MAX;
 	}
+
+	lua_getfield(L, index, "light_color");
+	read_color(L, -1, &f.light_color);
+	lua_pop(L, 1);
+
+	// u16 color12 = 0x000;
+
+    // color12 |= bitRound(R);
+    // color12 |= bitRound(G) << 4;
+    // color12 |= bitRound(B) << 8;
+
+/*
+u8 byteRound(u8 byte, int bit) {
+    bool larger = byte & bit;
+    byte >>= 4;
+
+    if (larger && byte < 15)
+        byte += 1;
+
+    return byte;
+}
+
+color12 |= byteRound(R, 0x8);
+color12 |= byteRound(G, 0x8) << 4;
+color12 |= byteRound(B, 0x8) << 8;
+*/
+
+
 	f.damage_per_second = getintfield_default(L, index,
 			"damage_per_second", f.damage_per_second);
 
@@ -857,6 +885,8 @@ void push_content_features(lua_State *L, const ContentFeatures &c)
 	lua_setfield(L, -2, "sunlight_propagates");
 	lua_pushnumber(L, c.light_source);
 	lua_setfield(L, -2, "light_source");
+	push_ARGB8(L, c.light_color);
+	lua_setfield(L, -2, "light_color");
 	lua_pushboolean(L, c.is_ground_content);
 	lua_setfield(L, -2, "is_ground_content");
 	lua_pushboolean(L, c.walkable);

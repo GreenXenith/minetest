@@ -376,6 +376,7 @@ void ContentFeatures::reset()
 	liquid_range = LIQUID_LEVEL_MAX+1;
 	drowning = 0;
 	light_source = 0;
+	light_color = video::SColor(0, 255, 255, 255);
 	damage_per_second = 0;
 	node_box = NodeBox();
 	selection_box = NodeBox();
@@ -440,6 +441,9 @@ void ContentFeatures::serialize(std::ostream &os, u16 protocol_version) const
 	writeU8(os, light_propagates);
 	writeU8(os, sunlight_propagates);
 	writeU8(os, light_source);
+	writeU8(os, light_color.getRed());
+	writeU8(os, light_color.getGreen());
+	writeU8(os, light_color.getBlue());
 
 	// map generation
 	writeU8(os, is_ground_content);
@@ -547,6 +551,9 @@ void ContentFeatures::deSerialize(std::istream &is)
 	sunlight_propagates = readU8(is);
 	light_source = readU8(is);
 	light_source = MYMIN(light_source, LIGHT_MAX);
+	light_color.setRed(readU8(is));
+	light_color.setGreen(readU8(is));
+	light_color.setBlue(readU8(is));
 
 	// map generation
 	is_ground_content = readU8(is);
