@@ -1369,28 +1369,55 @@ void MapBlockMesh::updateCameraOffset(v3s16 camera_offset)
 
 video::SColor encode_light(u16 light, u8 emissive_light)
 {
-	// Get components
-	u32 day = (light & 0xff);
-	u32 night = (light >> 8);
+	// (n + a * (255 - n) / 255)
+	float day = light & 0x000f;
+	float ar = (light >> 4) & 0x000f;
+	float ag = (light >> 8) & 0x000f;
+	float ab = (light >> 12) & 0x000f;
+
 	// Add emissive light
-	night += emissive_light * 2.5f;
-	if (night > 255)
-		night = 255;
-	// Since we don't know if the day light is sunlight or
-	// artificial light, assume it is artificial when the night
-	// light type is also lit.
-	if (day < night)
-		day = 0;
-	else
-		day = day - night;
-	u32 sum = day + night;
+	// night += emissive_light * 2.5f;
+	// if (night > 255)
+	// 	night = 255;
+
+	// if (day < night)
+	// 	day = 0;
+	// else
+	// 	day = day - night;
+	// u32 sum = day + night;
+
 	// Ratio of sunlight:
-	u32 r;
-	if (sum > 0)
-		r = day * 255 / sum;
-	else
-		r = 0;
-	// Average light:
-	float b = (day + night) / 2;
-	return video::SColor(r, b, b, b);
+	// u32 a;
+	// if (sum > 0)
+	// 	a = day * 255 / sum;
+	// else
+	// 	a = 0;
+	// float r = (day + ar * (255 - day) / 255);
+	// float g = (day + ag * (255 - day) / 255);
+	// float b = (day + ab * (255 - day) / 255);
+	return video::SColor(0, ar, ag, ab);
 }
+
+// video::SColor encode_light(u16 light, u8 emissive_light)
+// {
+// 	// Get components
+// 	u32 sky = (light & 0xff);
+// 	u32 artificial = (light >> 8);
+
+// 	// Add emissive light
+// 	artificial += emissive_light * 2.5f;
+// 	if (artificial > 255)
+// 		artificial = 255;
+
+// 	// Ratio of sunlight:
+// 	u32 a = 0;
+// 	u32 sum = sky + artificial;
+// 	if (sky > 0)
+// 		a = sky * 255 / sum;
+
+// 	// Average light:
+// 	float r = (sky + artificial) / 2;
+// 	float g = (sky + artificial) / 2;
+// 	float b = (sky + artificial) / 2;
+// 	return video::SColor(a, r, g, b);
+// }
